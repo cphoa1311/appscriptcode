@@ -1,0 +1,58 @@
+function mergeSheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var outputSheetName = "Tổng hợp"; // Sheet chứa dữ liệu tổng hợp
+  var outputSheet = ss.getSheetByName(outputSheetName) || ss.insertSheet(outputSheetName);
+  
+  outputSheet.clear(); // Xóa dữ liệu cũ trước khi tổng hợp
+  
+  var masterHeaders = [];
+  var combinedData = [];
+  var now = new Date();
+  var maxColumns = 0;
+  var currentRow = 1; // Theo dõi vị trí hàng để sao chép định dạng đúng
+
+  for (var i = 0; i < sheets.length; i++) {
+    var sheet = sheets[i];
+    var data = sheet.getDataRange().getValues();
+    var formats = sheet.getDataRange().getFontStyles(); // Lấy định dạng font
+    var bgColors = sheet.getDataRange().getBackgrounds(); // Lấy màu nền
+    
+    if (data.length < 2) continue; // Bỏ qua sheet không có dữ liệu
+    
+    if (i === 0) {
+      masterHeaders = data[0];  // Lấy tiêu đề từ sheet đầu tiên
+      masterHeaders.push("Ngày cập nhật");
+      maxColumns = masterHeaders.length; // Xác định số cột tối đa
+      combinedData.push(masterHeaders);
+    }
+
+    for (var j = 1; j < data.length; j++) {
+      var row = data[j];
+
+      // Đảm bảo số cột khớp với tiêu đề (nếu thiếu thì thêm ô trống)
+      while (row.length < maxColumns - 1) row.push("");
+      row.push(now); // Thêm ngày cập nhật
+      combinedData.push(row);
+    }
+
+    // Ghi dữ liệu từng phần để đảm bảo định dạng không bị lỗi
+    var startRow = currentRow;
+    var numRows = data.length - 1; // Không tính tiêu đề
+    var numCols = maxColumns;
+
+    if (numRows > 0) {
+      var range = outputSheet.getRange(startRow, 1, numRows, numCols);
+      range.setValues(combinedData.slice(currentRow - 1, currentRow - 1 + numRows));
+
+      // Sao chép định dạng từng sheet
+      var formatRange = sheet.getRange(2, 1, numRows, sheet.getLastColumn()); // Không tính tiêu đề
+      var targetRange = outputSheet.getRange(startRow, 1, numRows, formatRange.getNumColumns());
+      formatRange.copyTo(targetRange, { formatOnly: true });
+    }
+
+    currentRow += numRows; // Cập nhật vị trí hàng tiếp theo
+  }
+
+  SpreadsheetApp.getUi().alert("Tổng hợp dữ liệu hoàn tất và giữ nguyên định dạng!");
+}
