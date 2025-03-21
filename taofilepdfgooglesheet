@@ -1,0 +1,69 @@
+function exportSheetsToPDFWithCustomName() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const folderId = '1eXtdGM8E19nBW7YK-3pgPJHeC3EzOG1S';
+  const ui = SpreadsheetApp.getUi();
+
+  let folder;
+  try {
+    folder = DriveApp.getFolderById(folderId);
+  } catch (e) {
+    ui.alert('Không tìm thấy thư mục. Vui lòng kiểm tra lại ID thư mục.');
+    return;
+  }
+
+  // Prompt user for file name
+  const response = ui.prompt('Đặt tên file PDF', 'Nhập tên file mong muốn:', ui.ButtonSet.OK_CANCEL);
+
+  if (response.getSelectedButton() === ui.Button.CANCEL) {
+    ui.alert('Hủy xuất file.');
+    return;
+  }
+
+  let fileName = response.getResponseText().trim();
+  if (!fileName) {
+    fileName = spreadsheet.getName(); // Fallback to spreadsheet name if input is empty
+  }
+
+  // Add timestamp to ensure uniqueness
+  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
+  const fullFileName = `${fileName}_${timestamp}`;
+
+  // Define export options
+  const exportOptions = {
+    exportFormat: 'pdf',
+    format: 'pdf',
+    size: 'A4',
+    portrait: true,
+    fitw: true,
+    gridlines: false,
+    printtitle: false,
+    sheetnames: false,
+    fzr: false
+  };
+
+  const params = Object.entries(exportOptions)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&');
+
+  try {
+    // Export PDF
+    const blob = UrlFetchApp.fetch(
+      `${spreadsheet.getUrl().replace(/edit$/, '')}export?${params}`
+    ).getBlob().setName(`${fullFileName}.pdf`);
+
+    folder.createFile(blob);
+    ui.alert(`Xuất file PDF thành công với tên: ${fullFileName}.pdf`);
+
+    // Create a copy of the spreadsheet in the same folder
+    const spreadsheetCopy = spreadsheet.copy(`${fullFileName} - Bản sao`);
+    const copyFile = DriveApp.getFileById(spreadsheetCopy.getId());
+    folder.addFile(copyFile);
+
+    // Remove the file from the default "My Drive" location to keep things clean
+    DriveApp.getRootFolder().removeFile(copyFile);
+
+    ui.alert(`Đã tạo bản sao thành công: ${fullFileName} - Bản sao`);
+  } catch (e) {
+    ui.alert(`Đã xảy ra lỗi: ${e.message}`);
+  }
+}
